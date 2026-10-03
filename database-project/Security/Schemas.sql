@@ -1,0 +1,8 @@
+CREATE SCHEMA [catalog];
+GO
+CREATE SCHEMA [crm];
+GO
+CREATE SCHEMA [sales];
+GO
+CREATE SCHEMA [support];
+GO

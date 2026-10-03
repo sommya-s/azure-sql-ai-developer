@@ -1,0 +1,12 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "runtime": {
+    "graphql": { "allow-introspection": true },
+    "host": {
+      "mode": "development",
+      "cors": { "origins": ["http://localhost:5173", "http://localhost:3000"], "allow-credentials": false },
+      "authentication": { "provider": "Simulator" }
+    },
+    "telemetry": { "application-insights": { "enabled": false } }
+  }
+}

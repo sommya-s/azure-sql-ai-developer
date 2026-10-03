@@ -1,0 +1,2 @@
+# Optional: only needed for clickstream_sender.py (generate_data.py uses the standard library only)
+azure-eventhub>=5.11

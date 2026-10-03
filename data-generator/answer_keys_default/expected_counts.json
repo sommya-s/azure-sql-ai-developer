@@ -1,0 +1,35 @@
+{
+  "_note": "Ground truth BEFORE injected problems. Your silver/gold layers should reproduce these after cleaning, except lines you deliberately quarantine (see injected_issues).",
+  "distinct_orders": 4360,
+  "distinct_order_lines": 8619,
+  "orders_excluding_cancelled": 4251,
+  "net_sales_excluding_cancelled": 1680054.94,
+  "net_sales_by_region_excluding_cancelled": {
+    "Baltics": 838049.2,
+    "Central Europe": 421614.19,
+    "Nordics": 420391.55
+  },
+  "net_sales_excluding_cancelled_and_returned": 1650212.39,
+  "expected_silver_order_lines": 8583,
+  "customers_final": 1483,
+  "products": 240,
+  "reviews": 1435,
+  "tickets": 220,
+  "web_events_distinct": 19020,
+  "late_arriving_customers": 85,
+  "injected_issues": {
+    "customers_dirty_country": 18,
+    "customers_missing_email": 25,
+    "customers_invalid_email": 7,
+    "orders_status_updates": 2013,
+    "orders_late_arriving": 87,
+    "lines_missing_unit_price": 73,
+    "lines_unknown_product": 17,
+    "orders_exact_duplicates": 61,
+    "orders_bad_date_format": 31,
+    "lines_exact_duplicates": 53,
+    "lines_negative_quantity": 19,
+    "events_late": 421,
+    "events_duplicates": 197
+  }
+}

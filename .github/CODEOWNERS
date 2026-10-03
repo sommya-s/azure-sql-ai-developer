@@ -1,0 +1,8 @@
+# GitHub requests reviews from these owners on PRs touching the paths.
+# Replace @your-handle with your GitHub username (or teams).
+*                              @sommya-s
+/database-project/             @sommya-s
+/database-project/Security/    @sommya-s
+/sql/05_security.sql           @sommya-s
+/data-api-builder/             @sommya-s
+/.github/workflows/            @sommya-s

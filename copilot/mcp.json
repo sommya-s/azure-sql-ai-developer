@@ -1,0 +1,29 @@
+{
+  "servers": {
+    "trailhead-sql": {
+      "type": "http",
+      "url": "http://localhost:5000/mcp"
+    },
+    "trailhead-sql-stdio": {
+      "type": "stdio",
+      "command": "dab",
+      "args": ["start", "--mcp-stdio", "role:anonymous", "--config", "${workspaceFolder}/data-api-builder/dab-config.json"],
+      "env": {
+        "DAB_ENVIRONMENT": "Development",
+        "DAB_CONNECTION_STRING": "${input:dabConnectionString}"
+      }
+    },
+    "fabric-sql-endpoint": {
+      "type": "http",
+      "url": "https://api.fabric.microsoft.com/v1/mcp/dataPlane/workspaces/<workspace-id>/items/<lakehouse-sql-endpoint-or-warehouse-id>/sqlEndpoint"
+    }
+  },
+  "inputs": [
+    {
+      "id": "dabConnectionString",
+      "type": "promptString",
+      "description": "Connection string for TrailheadOps (Entra auth, no password)",
+      "password": true
+    }
+  ]
+}

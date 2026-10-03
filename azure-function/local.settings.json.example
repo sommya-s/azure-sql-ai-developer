@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "SqlConnectionString": "Server=tcp:<server>.database.windows.net,1433;Database=TrailheadOps;Authentication=Active Directory Default;Encrypt=True;",
+    "AZURE_OPENAI_ENDPOINT": "https://<your-resource>.openai.azure.com/",
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "text-embedding-3-small",
+    "Sql_Trigger_MaxBatchSize": "50",
+    "Sql_Trigger_PollingIntervalMs": "2000"
+  }
+}

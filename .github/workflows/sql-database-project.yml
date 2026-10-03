@@ -1,0 +1,153 @@
+# DP-800: CI/CD for the SQL Database Project
+#   PR       -> build (model validation + code analysis) -> deploy to a throwaway SQL Server 2025
+#               container -> unit + integration tests. Branch protection makes this a required check.
+#   main     -> same, then a gated deployment to Azure SQL (environment "production" = approvals).
+#   schedule -> schema drift detection: DeployReport of repo vs. production.
+# Auth to Azure is OpenID Connect (federated credential): no stored passwords or client secrets.
+
+name: sql-database-project
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["database-project/**", ".github/workflows/sql-database-project.yml"]
+  push:
+    branches: [main]
+    paths: ["database-project/**"]
+  schedule:
+    - cron: "0 5 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write          # needed for OIDC login to Azure
+
+env:
+  PROJECT_DIR: database-project
+  DACPAC: database-project/bin/Release/TrailheadOps.dacpac
+
+jobs:
+  build-and-test:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2025-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_SQL_SA_PASSWORD }}   # repo secret; only used by this throwaway container
+        ports: ["1433:1433"]
+    env:
+      CI_CONN: "Server=localhost,1433;Database=TrailheadOps_CI;User ID=sa;Password=${{ secrets.CI_SQL_SA_PASSWORD }};TrustServerCertificate=True"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build dacpac (validates syntax + references for the target platform, runs code analysis)
+        run: dotnet build "$PROJECT_DIR/TrailheadOps.sqlproj" -c Release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dacpac
+          path: ${{ env.DACPAC }}
+
+      - name: Install SqlPackage and go-sqlcmd
+        run: |
+          dotnet tool install --global microsoft.sqlpackage
+          curl -sSL -o sqlcmd.tar.bz2 https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2
+          tar -xjf sqlcmd.tar.bz2 sqlcmd && sudo mv sqlcmd /usr/local/bin/
+
+      - name: Wait for SQL Server
+        run: |
+          for i in $(seq 1 30); do
+            sqlcmd -S localhost -U sa -P "${{ secrets.CI_SQL_SA_PASSWORD }}" -C -Q "SELECT 1" && exit 0
+            sleep 5
+          done
+          echo "SQL Server did not start" && exit 1
+
+      - name: Deploy dacpac to the CI container
+        # The project targets Azure SQL DB; the container is SQL Server 2025 -> allow the platform mismatch here only.
+        run: >
+          sqlpackage /Action:Publish /SourceFile:"$DACPAC" /TargetConnectionString:"$CI_CONN"
+          /p:AllowIncompatiblePlatform=True /p:BlockOnPossibleDataLoss=False
+
+      - name: Run database tests
+        run: |
+          for f in "$PROJECT_DIR"/tests/00_*.sql "$PROJECT_DIR"/tests/10_*.sql "$PROJECT_DIR"/tests/20_*.sql; do
+            sqlcmd -S localhost -U sa -P "${{ secrets.CI_SQL_SA_PASSWORD }}" -C -d TrailheadOps_CI -b -i "$f"
+          done
+          sqlcmd -S localhost -U sa -P "${{ secrets.CI_SQL_SA_PASSWORD }}" -C -d TrailheadOps_CI -b -i "$PROJECT_DIR/tests/run_all_tests.sql"
+
+  deploy-production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: production      # Settings -> Environments: required reviewers, wait timer, main-only
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dacpac
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install SqlPackage
+        run: dotnet tool install --global microsoft.sqlpackage
+
+      - name: Generate the deployment script (reviewable artifact)
+        run: |
+          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+          sqlpackage /Action:Script /SourceFile:TrailheadOps.dacpac \
+            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
+            /OutputPath:deploy.sql /p:BlockOnPossibleDataLoss=True
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-script
+          path: deploy.sql
+
+      - name: Publish
+        run: |
+          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+          sqlpackage /Action:Publish /SourceFile:TrailheadOps.dacpac \
+            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
+            /p:BlockOnPossibleDataLoss=True /p:DropObjectsNotInSource=False
+
+  drift-detection:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production-readonly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet build "$PROJECT_DIR/TrailheadOps.sqlproj" -c Release
+      - run: dotnet tool install --global microsoft.sqlpackage
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: DeployReport = what publishing main would change = drift
+        run: |
+          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+          sqlpackage /Action:DeployReport /SourceFile:"$DACPAC" \
+            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
+            /OutputPath:drift-report.xml
+          if grep -q "<Operation " drift-report.xml; then
+            echo "::error::Schema drift detected between main and production. See drift-report.xml."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drift-report
+          path: drift-report.xml

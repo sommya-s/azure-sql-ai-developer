@@ -1,0 +1,20 @@
+# generated data
+output/
+output_*/
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+# SQL project build output
+database-project/bin/
+database-project/obj/
+# local settings / secrets
+local.settings.json
+.env
+*.publish.xml
+# Power BI
+*.pbix
+.pbi/localSettings.json
+.pbi/cache.abf

@@ -1,0 +1,355 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('DAB_CONNECTION_STRING')",
+    "options": {
+      "set-session-context": true
+    }
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api",
+      "request-body-strict": true
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql",
+      "allow-introspection": false,
+      "depth-limit": 6
+    },
+    "mcp": {
+      "enabled": true,
+      "path": "/mcp",
+      "description": "Trailhead Outfitters catalog, reviews, orders and hybrid search",
+      "dml-tools": true
+    },
+    "host": {
+      "mode": "production",
+      "cors": {
+        "origins": [
+          "https://trailhead.example.com"
+        ],
+        "allow-credentials": false
+      },
+      "authentication": {
+        "provider": "EntraId",
+        "jwt": {
+          "audience": "api://<your-app-registration-client-id>",
+          "issuer": "https://login.microsoftonline.com/<your-tenant-id>/v2.0"
+        }
+      }
+    },
+    "pagination": {
+      "default-page-size": 50,
+      "max-page-size": 1000
+    },
+    "cache": {
+      "enabled": true,
+      "ttl-seconds": 30
+    },
+    "telemetry": {
+      "application-insights": {
+        "enabled": true,
+        "connection-string": "@env('APPLICATIONINSIGHTS_CONNECTION_STRING')"
+      }
+    }
+  },
+  "entities": {
+    "Category": {
+      "description": "Product categories",
+      "source": {
+        "type": "table",
+        "object": "catalog.Category"
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/categories"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Category",
+          "plural": "Categories"
+        }
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            "read"
+          ]
+        }
+      ],
+      "relationships": {
+        "products": {
+          "cardinality": "many",
+          "target.entity": "Product",
+          "source.fields": [
+            "CategoryID"
+          ],
+          "target.fields": [
+            "CategoryID"
+          ]
+        }
+      },
+      "cache": {
+        "enabled": true,
+        "ttl-seconds": 3600
+      }
+    },
+    "Product": {
+      "description": "Active, sellable products (from a view: no cost, no inactive rows, no json column).",
+      "source": {
+        "type": "view",
+        "object": "catalog.vw_ActiveProduct"
+      },
+      "fields": [
+        {
+          "name": "ProductID",
+          "primary-key": true
+        }
+      ],
+      "rest": {
+        "enabled": true,
+        "path": "/products"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Product",
+          "plural": "Products"
+        }
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            "read"
+          ]
+        }
+      ],
+      "relationships": {
+        "category": {
+          "cardinality": "one",
+          "target.entity": "Category",
+          "source.fields": [
+            "CategoryID"
+          ],
+          "target.fields": [
+            "CategoryID"
+          ]
+        },
+        "reviews": {
+          "cardinality": "many",
+          "target.entity": "Review",
+          "source.fields": [
+            "ProductID"
+          ],
+          "target.fields": [
+            "ProductID"
+          ]
+        }
+      },
+      "cache": {
+        "enabled": true,
+        "ttl-seconds": 60
+      },
+      "mcp": {
+        "dml-tools": true
+      }
+    },
+    "Review": {
+      "description": "Customer product reviews",
+      "source": {
+        "type": "table",
+        "object": "catalog.ProductReview"
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/reviews"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Review",
+          "plural": "Reviews"
+        }
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "read",
+              "fields": {
+                "include": [
+                  "*"
+                ],
+                "exclude": [
+                  "CustomerID"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "role": "authenticated",
+          "actions": [
+            "read",
+            "create"
+          ]
+        }
+      ]
+    },
+    "OrderSummary": {
+      "description": "One row per order. Sales users only see their own region.",
+      "source": {
+        "type": "view",
+        "object": "sales.vw_OrderSummary"
+      },
+      "fields": [
+        {
+          "name": "OrderID",
+          "primary-key": true
+        }
+      ],
+      "rest": {
+        "enabled": true,
+        "path": "/orders"
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "OrderSummary",
+          "plural": "OrderSummaries"
+        }
+      },
+      "permissions": [
+        {
+          "role": "sales",
+          "actions": [
+            {
+              "action": "read",
+              "policy": {
+                "database": "@item.SalesRegion eq @claims.region"
+              }
+            }
+          ]
+        },
+        {
+          "role": "sales-admin",
+          "actions": [
+            "read"
+          ]
+        }
+      ]
+    },
+    "PlaceOrder": {
+      "description": "Create an order from a JSON array of {productId, qty}.",
+      "source": {
+        "type": "stored-procedure",
+        "object": "sales.usp_PlaceOrder",
+        "parameters": [
+          {
+            "name": "CustomerID",
+            "required": true,
+            "description": "Existing customer id"
+          },
+          {
+            "name": "Channel",
+            "required": true,
+            "description": "Store or Online"
+          },
+          {
+            "name": "StoreID",
+            "required": false,
+            "description": "Required when Channel = Store"
+          },
+          {
+            "name": "Lines",
+            "required": true,
+            "description": "JSON array, e.g. [{\"productId\":1,\"qty\":2}]"
+          }
+        ]
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/place-order",
+        "methods": [
+          "POST"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "operation": "mutation"
+      },
+      "permissions": [
+        {
+          "role": "authenticated",
+          "actions": [
+            "execute"
+          ]
+        }
+      ],
+      "mcp": {
+        "dml-tools": false,
+        "custom-tool": true
+      }
+    },
+    "Search": {
+      "description": "Hybrid (full-text + vector, RRF) search over products, reviews and tickets.",
+      "source": {
+        "type": "stored-procedure",
+        "object": "ai.usp_HybridSearch",
+        "parameters": [
+          {
+            "name": "Query",
+            "required": true,
+            "description": "Natural-language search text"
+          },
+          {
+            "name": "Top",
+            "required": false,
+            "default": 10,
+            "description": "Number of results"
+          },
+          {
+            "name": "SourceType",
+            "required": false,
+            "description": "Product, Review or Ticket"
+          }
+        ]
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/search",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "operation": "query"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            "execute"
+          ]
+        }
+      ],
+      "cache": {
+        "enabled": true,
+        "ttl-seconds": 120
+      },
+      "mcp": {
+        "dml-tools": false,
+        "custom-tool": true
+      }
+    }
+  }
+}
