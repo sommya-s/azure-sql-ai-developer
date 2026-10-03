@@ -9,6 +9,7 @@
     <ModelCollation>1033, CI</ModelCollation>
     <TreatTSqlWarningsAsErrors>false</TreatTSqlWarningsAsErrors>
     <RunSqlCodeAnalysis>true</RunSqlCodeAnalysis>
+    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
     <!-- Static code analysis on build (e.g. SR0001 SELECT *, SR0007 nullable columns in predicates).
          Promote a rule to an error with: <SqlCodeAnalysisRules>+!Microsoft.Rules.Data.SR0001</SqlCodeAnalysisRules> -->
   </PropertyGroup>
