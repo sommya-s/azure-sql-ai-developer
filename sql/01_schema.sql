@@ -300,7 +300,7 @@ CREATE EXTERNAL TABLE sales.OrderArchive
 WITH (LOCATION = '/orders/2025/', DATA_SOURCE = LakeArchive, FILE_FORMAT = ParquetFF);
 
 -- Ad hoc alternative without creating a table:
-SELECT TOP (10) * FROM OPENROWSET(BULK '/orders/2025/*.parquet', DATA_SOURCE = 'LakeArchive', FORMAT = 'parquet') AS o;
+SELECT TOP (10) * FROM OPENROWSET(BULK '/orders/2025/part-*.parquet', DATA_SOURCE = 'LakeArchive', FORMAT = 'parquet') AS o;
 */
 
 /* ---------- 13. Check your work ---------- */

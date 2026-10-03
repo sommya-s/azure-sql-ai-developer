@@ -227,7 +227,7 @@ GO
        ADD (DATABASE_PERMISSION_CHANGE_GROUP)
    WITH (STATE = ON);
    SELECT event_time, action_id, server_principal_name, statement
-   FROM sys.fn_get_audit_file('/var/opt/mssql/audit/*.sqlaudit', DEFAULT, DEFAULT);            */
+   FROM sys.fn_get_audit_file('/var/opt/mssql/audit/TrailheadAudit*.sqlaudit', DEFAULT, DEFAULT);            */
 
 /* =============================================================================================
    8. CHECK YOUR WORK
