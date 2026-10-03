@@ -23,8 +23,6 @@ flowchart LR
     COP[GitHub Copilot<br/>instructions, MCP] -.-> DAB
 ```
 
-Every skill in the DP-800 study guide is mapped to a file or lab step in [`SKILLS_MAP.md`](SKILLS_MAP.md). The map follows the version of the guide that takes effect on October 19, 2026, so check the guide's change log if you're reading this later.
-
 ## Before you start
 
 ### Pick a database
