@@ -10,7 +10,6 @@ name: sql-database-project
 on:
   pull_request:
     branches: [main]
-    paths: ["database-project/**", ".github/workflows/sql-database-project.yml"]
   push:
     branches: [main]
     paths: ["database-project/**"]
