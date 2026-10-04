@@ -139,7 +139,6 @@ azure-function/     SQL trigger binding that refreshes embeddings (lab 11)
 copilot/            Copilot instruction file and VS Code MCP config (lab 4b)
 data-generator/     regenerates the seed data and answer keys
 .github/            CI/CD workflow and CODEOWNERS
-SKILLS_MAP.md       every DP-800 skill mapped to a file or lab step
 ```
 
 <!--
