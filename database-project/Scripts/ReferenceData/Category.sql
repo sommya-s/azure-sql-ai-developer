@@ -5,7 +5,7 @@ USING (VALUES
     (7, N'Hiking Pants', N'Clothing'), (8, N'Tents', N'Camping'), (9, N'Sleeping Bags', N'Camping'),
     (10, N'Sleeping Pads', N'Camping'), (11, N'Stoves', N'Camping'), (12, N'Daypacks', N'Packs'),
     (13, N'Backpacking Packs', N'Packs'), (14, N'Headlamps', N'Electronics'), (15, N'GPS Devices', N'Electronics'),
-    (16, N'Harnesses', N'Climbing'), (17, N'Ropes', N'Climbing'), (18, N'Water Filters', N'Camping')
+    (16, N'Harnesses', N'Climbing'), (17, N'Ropes', N'Climbing'), (18, N'Water Filters', N'Camping'),(19, N'Trekking Poles', N'Hiking')
 ) AS s (CategoryID, CategoryName, Department)
 ON t.CategoryID = s.CategoryID
 WHEN MATCHED AND (t.CategoryName <> s.CategoryName OR t.Department <> s.Department) THEN
