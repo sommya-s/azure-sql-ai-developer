@@ -59,8 +59,8 @@ GO
 -- 5. Typo-tolerant product search: compare the search term with each word of the product name
 DECLARE @term nvarchar(50) = N'hedlamp';
 SELECT TOP (5) p.ProductID, p.ProductName,
-       MIN(EDIT_DISTANCE(LOWER(w.value), @term)) AS BestWordDistance,
-       MAX(JARO_WINKLER_SIMILARITY(LOWER(w.value), @term)) AS BestWordSimilarity
+       MIN(EDIT_DISTANCE(LOWER(w.value) COLLATE Latin1_General_100_CI_AS, @term COLLATE Latin1_General_100_CI_AS)) AS BestWordDistance,
+       MAX(JARO_WINKLER_SIMILARITY(LOWER(w.value) COLLATE Latin1_General_100_CI_AS, @term COLLATE Latin1_General_100_CI_AS)) AS BestWordSimilarity
 FROM catalog.Product AS p
 CROSS APPLY STRING_SPLIT(p.ProductName, N' ') AS w
 GROUP BY p.ProductID, p.ProductName
