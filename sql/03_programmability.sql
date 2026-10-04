@@ -65,7 +65,10 @@ JOIN sales.SalesOrder AS o ON o.OrderID = l.OrderID
 WHERE o.Status <> 'Cancelled'
 GROUP BY l.ProductID, CAST(o.OrderDate AS date);
 GO
+-- Indexed views and row-level security can't share a table (lab 5 removes this index before adding RLS),
+-- so only index the view while no security policy targets sales.SalesOrder.
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UCX_vw_ProductSalesDaily')
+   AND NOT EXISTS (SELECT 1 FROM sys.security_predicates WHERE target_object_id = OBJECT_ID(N'sales.SalesOrder'))
     CREATE UNIQUE CLUSTERED INDEX UCX_vw_ProductSalesDaily ON sales.vw_ProductSalesDaily (ProductID, SalesDate);
 GO
 
@@ -154,12 +157,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM crm.Customer WHERE CustomerID = @CustomerID)
         THROW 50011, N'Unknown customer.', 1;
 
-    DECLARE @lines TABLE (LineNumber smallint IDENTITY(1, 1) PRIMARY KEY, ProductID int, Quantity int);
-    INSERT @lines (ProductID, Quantity)
+    DECLARE @items TABLE (LineNumber smallint IDENTITY(1, 1) PRIMARY KEY, ProductID int, Quantity int);
+    INSERT @items (ProductID, Quantity)
     SELECT productId, qty
     FROM OPENJSON(@Lines) WITH (productId int '$.productId', qty int '$.qty');
 
-    IF EXISTS (SELECT 1 FROM @lines AS l
+    IF EXISTS (SELECT 1 FROM @items AS l
                LEFT JOIN catalog.Product AS p ON p.ProductID = l.ProductID
                WHERE p.ProductID IS NULL OR p.IsActive = 0)
         THROW 50012, N'One or more products are unknown or inactive.', 1;
@@ -182,7 +185,7 @@ BEGIN
         INSERT sales.SalesOrderLine (OrderID, LineNumber, ProductID, Quantity, UnitPrice, DiscountPct)
         SELECT @OrderID, l.LineNumber, l.ProductID, l.Quantity, p.ListPrice,
                CASE c.LoyaltyTier WHEN 'Gold' THEN 0.10 WHEN 'Silver' THEN 0.05 ELSE 0 END
-        FROM @lines AS l
+        FROM @items AS l
         JOIN catalog.Product AS p ON p.ProductID = l.ProductID
         CROSS JOIN (SELECT LoyaltyTier FROM crm.Customer WHERE CustomerID = @CustomerID) AS c;
 
@@ -288,7 +291,7 @@ GO
 
 -- 6a. Views and functions
 SELECT TOP (5) * FROM sales.vw_OrderSummary ORDER BY OrderTotal DESC;
-SELECT TOP (5) * FROM sales.vw_ProductSalesDaily WITH (NOEXPAND) ORDER BY NetSales DESC;  -- read the index directly
+SELECT TOP (5) * FROM sales.vw_ProductSalesDaily ORDER BY NetSales DESC;  -- the optimizer reads the view's index (check the plan)
 SELECT * FROM sales.fn_CustomerOrders(42) ORDER BY OrderDate;
 SELECT * FROM catalog.fn_TopRatedProducts(1, 3) ORDER BY AvgRating DESC;
 SELECT sales.fn_NetPrice(100.00, 3, 0.10) AS NetPrice;

@@ -14,12 +14,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM crm.Customer WHERE CustomerID = @CustomerID)
         THROW 50011, N'Unknown customer.', 1;
 
-    DECLARE @lines TABLE (LineNumber smallint IDENTITY(1, 1) PRIMARY KEY, ProductID int, Quantity int);
-    INSERT @lines (ProductID, Quantity)
+    DECLARE @items TABLE (LineNumber smallint IDENTITY(1, 1) PRIMARY KEY, ProductID int, Quantity int);
+    INSERT @items (ProductID, Quantity)
     SELECT productId, qty
     FROM OPENJSON(@Lines) WITH (productId int '$.productId', qty int '$.qty');
 
-    IF EXISTS (SELECT 1 FROM @lines AS l
+    IF EXISTS (SELECT 1 FROM @items AS l
                LEFT JOIN catalog.Product AS p ON p.ProductID = l.ProductID
                WHERE p.ProductID IS NULL OR p.IsActive = 0)
         THROW 50012, N'One or more products are unknown or inactive.', 1;
@@ -42,7 +42,7 @@ BEGIN
         INSERT sales.SalesOrderLine (OrderID, LineNumber, ProductID, Quantity, UnitPrice, DiscountPct)
         SELECT @OrderID, l.LineNumber, l.ProductID, l.Quantity, p.ListPrice,
                CASE c.LoyaltyTier WHEN 'Gold' THEN 0.10 WHEN 'Silver' THEN 0.05 ELSE 0 END
-        FROM @lines AS l
+        FROM @items AS l
         JOIN catalog.Product AS p ON p.ProductID = l.ProductID
         CROSS JOIN (SELECT LoyaltyTier FROM crm.Customer WHERE CustomerID = @CustomerID) AS c;
 
