@@ -6,4 +6,4 @@ CREATE TABLE sales.PriceAudit
     ChangedBy sysname        NOT NULL CONSTRAINT DF_PriceAudit_By DEFAULT (SUSER_SNAME()),
     ChangedAt datetime2(0)   NOT NULL CONSTRAINT DF_PriceAudit_At DEFAULT (SYSUTCDATETIME())
 )
-WITH (LEDGER = ON (APPEND_ONLY = ON));
+   WITH (LEDGER = ON (LEDGER_VIEW = sales.PriceAudit_Ledger, APPEND_ONLY = ON));

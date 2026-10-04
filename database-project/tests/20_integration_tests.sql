@@ -4,7 +4,7 @@ CREATE OR ALTER PROCEDURE test.test_reference_data_is_deployed
 AS
 BEGIN
     DECLARE @c int = (SELECT COUNT(*) FROM catalog.Category), @s int = (SELECT COUNT(*) FROM sales.Store);
-    EXEC test.AssertEquals 18, @c, N'categories from post-deployment MERGE';
+    EXEC test.AssertEquals 19, @c, N'categories from post-deployment MERGE';
     EXEC test.AssertEquals 12, @s, N'stores from post-deployment MERGE';
 END;
 GO
