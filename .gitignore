@@ -18,3 +18,4 @@ local.settings.json
 *.pbix
 .pbi/localSettings.json
 .pbi/cache.abf
+.DS_Store
