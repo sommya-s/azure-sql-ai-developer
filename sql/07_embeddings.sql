@@ -269,7 +269,6 @@ EXEC ai.usp_RefreshEmbeddings;      -- first run: chunks + embeds everything (to
 GO
 SELECT SourceType, COUNT(*) AS Chunks, AVG(LEN(ChunkText)) AS AvgChars, MIN(EmbeddingModel) AS Model
 FROM ai.ContentChunk GROUP BY SourceType;
-SELECT TOP (1) ChunkID, ChunkText, LEFT(CAST(Embedding AS nvarchar(max)), 200) AS FirstValues FROM ai.ContentChunk;
 GO
 
 /* =============================================================================================
