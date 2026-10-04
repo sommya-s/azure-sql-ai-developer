@@ -101,6 +101,11 @@ GO
 
 DROP SECURITY POLICY IF EXISTS sec.SalesRegionFilter;
 GO
+-- RLS can't be added to a table that an INDEXED view references: lookups through the view's index would
+-- bypass the policy. Lab 3 indexed sales.vw_ProductSalesDaily, so turn it back into a plain view first.
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UCX_vw_ProductSalesDaily')
+    DROP INDEX UCX_vw_ProductSalesDaily ON sales.vw_ProductSalesDaily;
+GO
 CREATE OR ALTER FUNCTION sec.fn_SalesRegionPredicate (@SalesRegion varchar(20))
 RETURNS TABLE
 WITH SCHEMABINDING
