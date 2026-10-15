@@ -1,25 +1,22 @@
-# DP-800: CI/CD for the SQL Database Project
-#   PR       -> build (model validation + code analysis) -> deploy to a throwaway SQL Server 2025
-#               container -> unit + integration tests. Branch protection makes this a required check.
-#   main     -> same, then a gated deployment to Azure SQL (environment "production" = approvals).
-#   schedule -> schema drift detection: DeployReport of repo vs. production.
-# Auth to Azure is OpenID Connect (federated credential): no stored passwords or client secrets.
+# DP-800: CI for the SQL Database Project
+#   Every PR and every push to main -> build (model validation + code analysis) -> deploy to a
+#   throwaway SQL Server 2025 container -> unit + integration tests.
+#   Branch protection makes build-and-test a required check, so nothing reaches main without it.
+#   (Deploying to a real Azure SQL database and drift detection are left out on purpose: this is a
+#    learning project and the database is created by the scripts in sql/.)
 
 name: sql-database-project
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main]            # no paths filter: build-and-test is a required check, so it must run on every PR
   push:
     branches: [main]
     paths: ["database-project/**"]
-  schedule:
-    - cron: "0 5 * * 1-5"
-  workflow_dispatch:
+  workflow_dispatch:            # run it by hand from the Actions tab
 
 permissions:
   contents: read
-  id-token: write          # needed for OIDC login to Azure
 
 env:
   PROJECT_DIR: database-project
@@ -27,7 +24,6 @@ env:
 
 jobs:
   build-and-test:
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     services:
       mssql:
@@ -81,72 +77,3 @@ jobs:
           done
           sqlcmd -S localhost -U sa -P "${{ secrets.CI_SQL_SA_PASSWORD }}" -C -d TrailheadOps_CI -b -i "$PROJECT_DIR/tests/run_all_tests.sql"
 
-  deploy-production:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    environment: production      # Settings -> Environments: required reviewers, wait timer, main-only
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dacpac
-
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install SqlPackage
-        run: dotnet tool install --global microsoft.sqlpackage
-
-      - name: Generate the deployment script (reviewable artifact)
-        run: |
-          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
-          sqlpackage /Action:Script /SourceFile:TrailheadOps.dacpac \
-            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
-            /OutputPath:deploy.sql /p:BlockOnPossibleDataLoss=True
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: deploy-script
-          path: deploy.sql
-
-      - name: Publish
-        run: |
-          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
-          sqlpackage /Action:Publish /SourceFile:TrailheadOps.dacpac \
-            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
-            /p:BlockOnPossibleDataLoss=True /p:DropObjectsNotInSource=False
-
-  drift-detection:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment: production-readonly
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-      - run: dotnet build "$PROJECT_DIR/TrailheadOps.sqlproj" -c Release
-      - run: dotnet tool install --global microsoft.sqlpackage
-      - uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: DeployReport = what publishing main would change = drift
-        run: |
-          TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
-          sqlpackage /Action:DeployReport /SourceFile:"$DACPAC" \
-            /TargetServerName:"${{ vars.SQL_SERVER }}" /TargetDatabaseName:TrailheadOps /AccessToken:"$TOKEN" \
-            /OutputPath:drift-report.xml
-          if grep -q "<Operation " drift-report.xml; then
-            echo "::error::Schema drift detected between main and production. See drift-report.xml."
-            exit 1
-          fi
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: drift-report
-          path: drift-report.xml
